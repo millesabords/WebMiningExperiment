@@ -20,7 +20,6 @@
 #include <netinet/udp.h>
  
 #include <fcntl.h>
-#include <getopt.h>
 #include <ifaddrs.h>
 #include <netdb.h>
 #include <pcap.h>
@@ -29,7 +28,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
-#include <unistd.h>
 
 #define MAX_BYTES2CAPTURE 2048
 
@@ -79,7 +77,6 @@ struct nread_tcp {
 
 u_int16_t ethernet_handler (u_char *args, const struct pcap_pkthdr* pkthdr,
 			    const u_char* packet)
-
 {
   u_int caplen = pkthdr->caplen; /* length of portion present from bpf  */
   u_int length = pkthdr->len;    /* length of this packet off the wire  */
@@ -94,87 +91,96 @@ u_int16_t ethernet_handler (u_char *args, const struct pcap_pkthdr* pkthdr,
     }
 
   ether_type = ntohs(eptr->ether_type);
-  fprintf(stdout,"eth: ");
-  fprintf(stdout,
-	  "%s ", ether_ntoa((struct ether_addr*)eptr->ether_shost));
-  fprintf(stdout,
-	  "%s ", ether_ntoa((struct ether_addr*)eptr->ether_dhost));
+/*   fprintf(stdout,"eth: "); */
+/*   fprintf(stdout, */
+/* 	  "%s ", (char*) ether_ntoa((struct ether_addr*)eptr->ether_shost)); */
+/*   fprintf(stdout, */
+/* 	  "%s ", (char*) ether_ntoa((struct ether_addr*)eptr->ether_dhost)); */
  
-  if (ether_type == ETHERTYPE_IP) {
-    fprintf(stdout,"(ip)");
-  } else  if (ether_type == ETHERTYPE_ARP) {
-    fprintf(stdout,"(arp)");
-  } else  if (eptr-ether_type == ETHERTYPE_REVARP) {
-    fprintf(stdout,"(rarp)");
-  } else {
-    fprintf(stdout,"(?)");
-  }
+/*   if (ether_type == ETHERTYPE_IP) { */
+/*     fprintf(stdout,"(ip)"); */
+/*   } else  if (ether_type == ETHERTYPE_ARP) { */
+/*     fprintf(stdout,"(arp)"); */
+/*   } else  if (eptr->ether_type == ETHERTYPE_REVARP) { */
+/*     fprintf(stdout,"(rarp)"); */
+/*   } else { */
+/*     fprintf(stdout,"(?)"); */
+/*   } */
  
-  fprintf(stdout," %d\n",length); /* print len */
+/*   fprintf(stdout," %d\n",length); /\* print len *\/ */
  
   return ether_type;
 }
 
-
 u_char* ip_handler (u_char *args,const struct pcap_pkthdr* pkthdr,
 		    const u_char* packet)
 {
-  const struct nread_ip* ip;   /* packet structure         */
+  const struct nread_ip* _ip;   /* packet structure         */
   const struct nread_tcp* tcp; /* tcp structure            */
   u_int length = pkthdr->len;  /* packet header length  */
   u_int hlen, off, version;             /* offset, version       */
   int len;                        /* length holder         */
 
-  ip = (struct nread_ip*)(packet + sizeof(struct ether_header));
-  hlen    = IP_HL(ip);         /* get header length */
+  char dataStr[1024];
+  int i = 0;
+  int j = 0;
+  u_char* data = 0;
+  u_int dataLength = 0;
+
+  _ip = (struct nread_ip*)(packet + sizeof(struct ether_header));
+  hlen    = IP_HL(_ip);         /* get header length */
   length -= sizeof(struct ether_header);
   tcp = (struct nread_tcp*)(packet + sizeof(struct ether_header) +
 			    sizeof(struct nread_ip));
 
-  len     = ntohs(ip->ip_len); /* get packer length */
-  version = IP_V(ip);          /* get ip version    */
+  len     = ntohs(_ip->ip_len); /* get packer length */
+  version = IP_V(_ip);          /* get ip version    */
 
-  off = ntohs(ip->ip_off);
+  off = ntohs(_ip->ip_off);
 
   /* if (hlen < 5 ) */
   /*   fprintf(stderr,"Alert: %s bad header length %d\n", inet_ntoa(ip->ip)); */
-  if (length < len)
-    fprintf(stderr,"Alert: %s truncated %d bytes missing.\n");
-
-  if ((off & 0x1fff) == 0 ) /* aka no 1's in first 13 bits */
-    {
-      fprintf(stdout,"ip: ");
-      fprintf(stdout,"%s:%u->%s:%u ",
-	      inet_ntoa(ip->ip_src), tcp->th_sport,
-	      inet_ntoa(ip->ip_dst), tcp->th_dport);
-      fprintf(stdout,
-	      "tos %u len %u off %u ttl %u prot %u cksum %u ",
-	      ip->ip_tos, len, off, ip->ip_ttl,
-	      ip->ip_p, ip->ip_sum);
-
-      fprintf(stdout,"seq %u ack %u win %u ",
-	      tcp->th_seq, tcp->th_ack, tcp->th_win);
-      /* fprintf(stdout,"%s", payload); */
-      printf("\n");
-
-
-/* WORK WORK */
       /* if (ipHeader->ip_p == IPPROTO_TCP) { */
       /* 	tcpHeader = (tcphdr*)(packet + sizeof(struct ether_header) + sizeof(struct ip)); */
       /* 	sourcePort = ntohs(tcpHeader->source); */
       /* 	destPort = ntohs(tcpHeader->dest); */
-      /* 	data = (u_char*)(packet + sizeof(struct ether_header) + sizeof(struct ip) + sizeof(struct tcphdr)); */
-      /* 	dataLength = pkthdr->len - (sizeof(struct ether_header) + sizeof(struct ip) + sizeof(struct tcphdr)); */
-      // convert non-printable characters, other than carriage return, line feed,
-      // or tab into periods when displayed.
-      /* for (int i = 0; i < dataLength; i++) { */
-      /* 	if ((data[i] >= 32 && data[i] <= 126) || data[i] == 10 || data[i] == 11 || data[i] == 13) { */
-      /* 	  dataStr += (char)data[i]; */
-      /* 	} else { */
-      /* 	  dataStr += "."; */
-      /* 	} */
+  data = (u_char*)(packet + sizeof(struct ether_header) + sizeof(struct nread_ip) + sizeof(struct tcphdr));
+  dataLength = pkthdr->len - (sizeof(struct ether_header) + sizeof(struct nread_ip) + sizeof(struct tcphdr));
 
-    }
+  memset(dataStr, '\0', 1024);
+
+  // convert non-printable characters, other than carriage return, line feed,
+  // or tab into periods when displayed.
+  for (i = 0, j = 0; i < dataLength; i++) {
+    if ((data[i] >= 32 && data[i] <= 126) || data[i] == 10 || data[i] == 11 || data[i] == 13)
+      dataStr[j] = (char)data[i];
+    else
+      dataStr[j] = '.';
+    j++;
+  }
+  dataStr[j] = '\0';
+  
+  printf("PAYLOAD: %s\n", dataStr);
+
+/*   if (length < len) */
+/*     fprintf(stderr,"Alert: ip packet truncated: %d bytes missing.\n", len - length); */
+
+/*   if ((off & 0x1fff) == 0 ) /\* aka no 1's in first 13 bits *\/ */
+/*     { */
+/*       fprintf(stdout,"ip: "); */
+/*       fprintf(stdout,"%s:%u->%s:%u ", */
+/* 	      inet_ntoa(_ip->ip_src), tcp->th_sport, */
+/* 	      inet_ntoa(_ip->ip_dst), tcp->th_dport); */
+/*       fprintf(stdout, */
+/* 	      "tos %u len %u off %u ttl %u prot %u cksum %u ", */
+/* 	      _ip->ip_tos, len, off, _ip->ip_ttl, */
+/* 	      _ip->ip_p, _ip->ip_sum); */
+
+/*       fprintf(stdout,"seq %u ack %u win %u ", */
+/* 	      tcp->th_seq, tcp->th_ack, tcp->th_win); */
+/* /\*       fprintf(stdout,"PAYLOAD: %s", tcp->th_off); *\/ */
+/*       printf("\n"); */
+/*     } */
   return NULL;
 }
 
@@ -195,7 +201,6 @@ void processPacket(u_char* args, const struct pcap_pkthdr* pkthdr, const u_char*
 
 int main()
 {
-  int i = 0;
   int count = 0;
   pcap_t* descr = 0;			/* Session descr */
   char* device = 0;
@@ -238,20 +243,17 @@ int main()
   /* can filter only some of the first 4 datas: (get.)tcpdump -i eth1 'tcp[20:4] = 0x47455420' */
 /*or, int the same idea:  ether[100] == 123 and ether[102] == 124 */
 
-/* tcp and dst port 80 */
+  if( (pcap_compile(descr, &filter, "tcp and src port 80", 1, mask)) == -1)
+    {
+      fprintf(stderr, "error during 'pcap compile'\n");
+      return 1;
+    }
 
-  /* if( (pcap_compile(descr, &filter, "tcp port 80 and dst host MYIP", 0/1, net/mask)) == -1) */
-  /*   { */
-  /*     fprintf(stderr, "error during 'pcap compile'\n"); */
-  /*     return 1; */
-  /*   } */
-/* ...->TCP_DATA!!!if $filter =~ p and p.tcp_data =~ /GET(.*)HTTP.*Host:([^\r\n]*)/xm   puts "#{p.src} - http://#{$2.strip}#{$1.strip}"
-*/
-  /* if( (pcap_setfilter(descr, &filter)) == -1) */
-  /*   { */
-  /*     fprintf(stderr, "error during 'pcap setfilter'\n"); */
-  /*     return 1; */
-  /*   } */
+  if( (pcap_setfilter(descr, &filter)) == -1)
+    {
+      fprintf(stderr, "error during 'pcap setfilter'\n");
+      return 1;
+    }
 
   pcap_loop(descr, -1, processPacket, (u_char*)&count);
   
