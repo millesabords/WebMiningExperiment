@@ -1,4 +1,5 @@
 /* have a look at "/usr/include/netinet/ether.h" */
+/* you can test this program with "wget www.google.fr" */
 
 #define _BSD_SOURCE 1
 
@@ -148,27 +149,28 @@ u_char* ip_handler (u_char *args,const struct pcap_pkthdr* pkthdr,
   dataLength = pkthdr->len - (sizeof(struct ether_header) + sizeof(struct nread_ip) + sizeof(struct tcphdr));
 
 
-  //DEBUG
   dataStr = (char*) malloc(dataLength * sizeof(char) + 1);
-  /* memset(dataStr, '.', dataLength); */
   dataStr[dataLength] = '\0';
   memcpy(dataStr, data, dataLength);
 
-  printf("(l=%u) WAX: %s\n", dataLength, dataStr);
+  //DEBUG
+  if(dataLength > 50)
+    dataStr[24] = '\0';
+  //ENDOFDEBUG
+
+
+  printf("PAYLOAD_BEFORE: (l=%u) %s\n--------------------------------\n\n", dataLength, dataStr);
 
   // convert non-printable characters, other than carriage return, line feed,
   // or tab into periods when displayed.
-  /* for (i = 0; i < dataLength; i++) { */
-  /*   if ((data[i] >= 32 && data[i] <= 126) || data[i] == 10 || data[i] == 11 || data[i] == 13) */
-  /*     dataStr[i] = (char)data[i]; */
-  /*   else */
-  /*     dataStr[j] = '.'; */
-  /*   j++; */
-  /* } */
-  /* dataStr[j] = '\0'; */
+  for (i = 0; i < dataLength; i++) {
+    if ((data[i] < 32 || data[i] > 126) && data[i] != 10 && data[i] != 11 && data[i] != 13)
+      dataStr[i] = '.';
+  }
+
+  printf("PAYLOAD_AFTER: (l=%u) %s\n--------------------------------\n\n", dataLength, dataStr);
   
-  /* printf("PAYLOAD: %s\n", dataStr); */
-  /* printf("WAX1\n"); */
+
 /* /\*   if (length < len) *\/ */
 /* /\*     fprintf(stderr,"Alert: ip packet truncated: %d bytes missing.\n", len - length); *\/ */
 
@@ -249,8 +251,9 @@ int main()
   /* GET / HTTP/1.1\r\n */
   /* can filter only some of the first 4 datas: (get.)tcpdump -i eth1 'tcp[20:4] = 0x47455420' */
 /*or, int the same idea:  ether[100] == 123 and ether[102] == 124 */
-
-  if( (pcap_compile(descr, &filter, "tcp and src port 80", 1, mask)) == -1)
+  /* char* filter_exp = "tcp[20:4] = 0x47455420"; *///not suitable for pages sent in several pieces (1st part of page will contain the "GET HTTP" things, but rest of the parts won't, but we need them)
+  char* filter_exp = "tcp and src port 80";
+  if( (pcap_compile(descr, &filter, filter_exp, 1, mask)) == -1)
     {
       fprintf(stderr, "error during 'pcap compile'\n");
       return 1;
