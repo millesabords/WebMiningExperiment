@@ -2,39 +2,40 @@
 
 #define _BSD_SOURCE 1
 
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/types.h>
+/* #include <sys/ioctl.h> */
+/* #include <sys/socket.h> */
+/* #include <sys/stat.h> */
+/* #include <sys/types.h> */
 
-#include <arpa/inet.h>
-#include <net/ethernet.h>
+/* #include <arpa/inet.h> */
+/* #include <net/ethernet.h> */
  
-#ifdef LINUX
-#include <netinet/ether.h>
-#endif
+/* #ifdef LINUX */
+/* #include <netinet/ether.h> */
+/* #endif */
  
 #include <netinet/if_ether.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#include <netinet/udp.h>
+/* #include <netinet/in.h> */
+#include <netinet/tcp.h> 
+/* #include <netinet/udp.h> */
  
-#include <fcntl.h>
-#include <ifaddrs.h>
+/* #include <fcntl.h> */
+/* #include <ifaddrs.h> */
 #include <netdb.h>
 #include <pcap.h>
-#include <signal.h>
-#include <stdio.h>
+/* #include <signal.h> */
+/* #include <stdio.h> */
 #include <stdlib.h>
 #include <string.h>
-#include <syslog.h>
+/* #include <syslog.h> */
 
 #define MAX_BYTES2CAPTURE 2048
 
 struct nread_ip {
-  u_int8_t        ip_vhl;          /* header length, version    */
+  u_int8_t        ip_vhl;          /* header length, version */
 #define IP_V(ip)    (((ip)->ip_vhl & 0xf0) >> 4)
 #define IP_HL(ip)   ((ip)->ip_vhl & 0x0f)
+
   u_int8_t        ip_tos;          /* type of service           */
   u_int16_t       ip_len;          /* total length              */
   u_int16_t       ip_id;           /* identification            */
@@ -121,66 +122,72 @@ u_char* ip_handler (u_char *args,const struct pcap_pkthdr* pkthdr,
   u_int hlen, off, version;             /* offset, version       */
   int len;                        /* length holder         */
 
-  char dataStr[1024];
+  char* dataStr = 0;
   int i = 0;
-  int j = 0;
   u_char* data = 0;
   u_int dataLength = 0;
 
-  _ip = (struct nread_ip*)(packet + sizeof(struct ether_header));
-  hlen    = IP_HL(_ip);         /* get header length */
-  length -= sizeof(struct ether_header);
-  tcp = (struct nread_tcp*)(packet + sizeof(struct ether_header) +
-			    sizeof(struct nread_ip));
+  /* _ip = (struct nread_ip*)(packet + sizeof(struct ether_header)); */
+  /* hlen    = IP_HL(_ip);         /\* get header length *\/ */
+  /* length -= sizeof(struct ether_header); */
+  /* tcp = (struct nread_tcp*)(packet + sizeof(struct ether_header) + */
+  /* 			    sizeof(struct nread_ip)); */
 
-  len     = ntohs(_ip->ip_len); /* get packer length */
-  version = IP_V(_ip);          /* get ip version    */
+  /* len     = ntohs(_ip->ip_len); /\* get packer length *\/ */
+  /* version = IP_V(_ip);          /\* get ip version    *\/ */
 
-  off = ntohs(_ip->ip_off);
+  /* off = ntohs(_ip->ip_off); */
 
-  /* if (hlen < 5 ) */
-  /*   fprintf(stderr,"Alert: %s bad header length %d\n", inet_ntoa(ip->ip)); */
-      /* if (ipHeader->ip_p == IPPROTO_TCP) { */
-      /* 	tcpHeader = (tcphdr*)(packet + sizeof(struct ether_header) + sizeof(struct ip)); */
-      /* 	sourcePort = ntohs(tcpHeader->source); */
-      /* 	destPort = ntohs(tcpHeader->dest); */
+  /* /\* if (hlen < 5 ) *\/ */
+  /* /\*   fprintf(stderr,"Alert: %s bad header length %d\n", inet_ntoa(ip->ip)); *\/ */
+  /*     /\* if (ipHeader->ip_p == IPPROTO_TCP) { *\/ */
+  /*     /\* 	tcpHeader = (tcphdr*)(packet + sizeof(struct ether_header) + sizeof(struct ip)); *\/ */
+  /*     /\* 	sourcePort = ntohs(tcpHeader->source); *\/ */
+  /*     /\* 	destPort = ntohs(tcpHeader->dest); *\/ */
   data = (u_char*)(packet + sizeof(struct ether_header) + sizeof(struct nread_ip) + sizeof(struct tcphdr));
   dataLength = pkthdr->len - (sizeof(struct ether_header) + sizeof(struct nread_ip) + sizeof(struct tcphdr));
 
-  memset(dataStr, '\0', 1024);
+
+  //DEBUG
+  dataStr = (char*) malloc(dataLength * sizeof(char) + 1);
+  /* memset(dataStr, '.', dataLength); */
+  dataStr[dataLength] = '\0';
+  memcpy(dataStr, data, dataLength);
+
+  printf("(l=%u) WAX: %s\n", dataLength, dataStr);
 
   // convert non-printable characters, other than carriage return, line feed,
   // or tab into periods when displayed.
-  for (i = 0, j = 0; i < dataLength; i++) {
-    if ((data[i] >= 32 && data[i] <= 126) || data[i] == 10 || data[i] == 11 || data[i] == 13)
-      dataStr[j] = (char)data[i];
-    else
-      dataStr[j] = '.';
-    j++;
-  }
-  dataStr[j] = '\0';
+  /* for (i = 0; i < dataLength; i++) { */
+  /*   if ((data[i] >= 32 && data[i] <= 126) || data[i] == 10 || data[i] == 11 || data[i] == 13) */
+  /*     dataStr[i] = (char)data[i]; */
+  /*   else */
+  /*     dataStr[j] = '.'; */
+  /*   j++; */
+  /* } */
+  /* dataStr[j] = '\0'; */
   
-  printf("PAYLOAD: %s\n", dataStr);
+  /* printf("PAYLOAD: %s\n", dataStr); */
+  /* printf("WAX1\n"); */
+/* /\*   if (length < len) *\/ */
+/* /\*     fprintf(stderr,"Alert: ip packet truncated: %d bytes missing.\n", len - length); *\/ */
 
-/*   if (length < len) */
-/*     fprintf(stderr,"Alert: ip packet truncated: %d bytes missing.\n", len - length); */
+/* /\*   if ((off & 0x1fff) == 0 ) /\\* aka no 1's in first 13 bits *\\/ *\/ */
+/* /\*     { *\/ */
+/* /\*       fprintf(stdout,"ip: "); *\/ */
+/* /\*       fprintf(stdout,"%s:%u->%s:%u ", *\/ */
+/* /\* 	      inet_ntoa(_ip->ip_src), tcp->th_sport, *\/ */
+/* /\* 	      inet_ntoa(_ip->ip_dst), tcp->th_dport); *\/ */
+/* /\*       fprintf(stdout, *\/ */
+/* /\* 	      "tos %u len %u off %u ttl %u prot %u cksum %u ", *\/ */
+/* /\* 	      _ip->ip_tos, len, off, _ip->ip_ttl, *\/ */
+/* /\* 	      _ip->ip_p, _ip->ip_sum); *\/ */
 
-/*   if ((off & 0x1fff) == 0 ) /\* aka no 1's in first 13 bits *\/ */
-/*     { */
-/*       fprintf(stdout,"ip: "); */
-/*       fprintf(stdout,"%s:%u->%s:%u ", */
-/* 	      inet_ntoa(_ip->ip_src), tcp->th_sport, */
-/* 	      inet_ntoa(_ip->ip_dst), tcp->th_dport); */
-/*       fprintf(stdout, */
-/* 	      "tos %u len %u off %u ttl %u prot %u cksum %u ", */
-/* 	      _ip->ip_tos, len, off, _ip->ip_ttl, */
-/* 	      _ip->ip_p, _ip->ip_sum); */
-
-/*       fprintf(stdout,"seq %u ack %u win %u ", */
-/* 	      tcp->th_seq, tcp->th_ack, tcp->th_win); */
-/* /\*       fprintf(stdout,"PAYLOAD: %s", tcp->th_off); *\/ */
-/*       printf("\n"); */
-/*     } */
+/* /\*       fprintf(stdout,"seq %u ack %u win %u ", *\/ */
+/* /\* 	      tcp->th_seq, tcp->th_ack, tcp->th_win); *\/ */
+/* /\* /\\*       fprintf(stdout,"PAYLOAD: %s", tcp->th_off); *\\/ *\/ */
+/* /\*       printf("\n"); *\/ */
+/* /\*     } *\/ */
   return NULL;
 }
 
