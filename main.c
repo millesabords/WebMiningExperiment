@@ -77,6 +77,14 @@ struct nread_tcp {
   u_short th_urp; /* urgent pointer */
 };
 
+static char* substring(const char* str, size_t begin, size_t len)
+{
+  if (str == 0 || strlen(str) == 0 || strlen(str) < begin || strlen(str) < (begin+len))
+    return 0;
+
+  return strndup(str + begin, len);
+} 
+
 u_int16_t ethernet_handler (u_char *args, const struct pcap_pkthdr* pkthdr,
 			    const u_char* packet)
 {
@@ -131,8 +139,23 @@ u_char* ip_handler (u_char *args,const struct pcap_pkthdr* pkthdr,
   /* _ip = (struct nread_ip*)(packet + sizeof(struct ether_header)); */
   /* hlen    = IP_HL(_ip);         /\* get header length *\/ */
   /* length -= sizeof(struct ether_header); */
-  /* tcp = (struct nread_tcp*)(packet + sizeof(struct ether_header) + */
-  /* 			    sizeof(struct nread_ip)); */
+  tcp = (struct nread_tcp*)(packet + sizeof(struct ether_header) +
+  			    sizeof(struct nread_ip));
+
+  //TODO: isReceivablePage(header,sizeofcontent...);
+  // which performs a lot of work: is the http content valid? not already seen?
+  // or even is the program not checking too many pages at the same time (load
+  // balancing system the drops tcp frames if too much work)
+  // for now let's consider all web pages used for unit tests are ok (so,
+  // be careful with tests)
+  //
+  // push flag set to 1 to warn its the end of the file that is being transferred
+  //
+  // looking at ISN/SYN number may also be pertinent
+  // http://www.tcpipguide.com/free/t_TCPConnectionEstablishmentSequenceNumberSynchroniz.htm
+  // check ip_off from ip structure in ipfilter function to check for fragment/don't fragment value
+  // update>>>> do some hand tests to inspect those flags respective roles
+
 
   /* len     = ntohs(_ip->ip_len); /\* get packer length *\/ */
   /* version = IP_V(_ip);          /\* get ip version    *\/ */
@@ -153,22 +176,14 @@ u_char* ip_handler (u_char *args,const struct pcap_pkthdr* pkthdr,
   dataStr[dataLength] = '\0';
   memcpy(dataStr, data, dataLength);
 
-  //DEBUG
-  if(dataLength > 50)
-    dataStr[24] = '\0';
-  //ENDOFDEBUG
-
-
-  printf("PAYLOAD_BEFORE: (l=%u) %s\n--------------------------------\n\n", dataLength, dataStr);
-
   // convert non-printable characters, other than carriage return, line feed,
   // or tab into periods when displayed.
   for (i = 0; i < dataLength; i++) {
-    if ((data[i] < 32 || data[i] > 126) && data[i] != 10 && data[i] != 11 && data[i] != 13)
+    if ((data[i] < 32 || data[i] > 126) && data[i] != '\0' && data[i] != 10 && data[i] != 11 && data[i] != 13)
       dataStr[i] = '.';
   }
 
-  printf("PAYLOAD_AFTER: (l=%u) %s\n--------------------------------\n\n", dataLength, dataStr);
+  printf("XXXXpayload preview: (length=%u) %sEOP YYYYYYY\n\n", dataLength, dataStr);
   
 
 /* /\*   if (length < len) *\/ */
@@ -176,27 +191,35 @@ u_char* ip_handler (u_char *args,const struct pcap_pkthdr* pkthdr,
 
 /* /\*   if ((off & 0x1fff) == 0 ) /\\* aka no 1's in first 13 bits *\\/ *\/ */
 /* /\*     { *\/ */
-/* /\*       fprintf(stdout,"ip: "); *\/ */
-/* /\*       fprintf(stdout,"%s:%u->%s:%u ", *\/ */
-/* /\* 	      inet_ntoa(_ip->ip_src), tcp->th_sport, *\/ */
-/* /\* 	      inet_ntoa(_ip->ip_dst), tcp->th_dport); *\/ */
-/* /\*       fprintf(stdout, *\/ */
-/* /\* 	      "tos %u len %u off %u ttl %u prot %u cksum %u ", *\/ */
-/* /\* 	      _ip->ip_tos, len, off, _ip->ip_ttl, *\/ */
-/* /\* 	      _ip->ip_p, _ip->ip_sum); *\/ */
+      /* fprintf(stdout,"ip: "); */
+      /* fprintf(stdout,"%s:%u->%s:%u ", */
+      /* 	      (char*)inet_ntoa(_ip->ip_src), tcp->th_sport, */
+      /* 	      (char*) inet_ntoa(_ip->ip_dst), tcp->th_dport); */
+      /* fprintf(stdout, */
+      /* 	      "tos %u len %u off %u ttl %u prot %u cksum %u ", */
+      /* 	      _ip->ip_tos, len, off, _ip->ip_ttl, */
+      /* 	      _ip->ip_p, _ip->ip_sum); */
 
-/* /\*       fprintf(stdout,"seq %u ack %u win %u ", *\/ */
-/* /\* 	      tcp->th_seq, tcp->th_ack, tcp->th_win); *\/ */
-/* /\* /\\*       fprintf(stdout,"PAYLOAD: %s", tcp->th_off); *\\/ *\/ */
-/* /\*       printf("\n"); *\/ */
-/* /\*     } *\/ */
+  fprintf(stdout,"gotcha tcp frame:\n Source Port:\t%u\n Destination Port: %u\n Sequence Number: %u\n acknowledgment number: %u\n Data Offset: %u\n Flags: %X\n Window: %u\n Checksum: %u\n Urgent Pointer: %u\n",
+	  tcp->th_sport, tcp->th_dport, tcp->th_seq, tcp->th_ack, tcp->th_off, tcp->th_flags, tcp->th_win, tcp->th_sum, tcp->th_urp);
+
+  printf("urg=%u ", (tcp->th_flags & TH_URG)>>5);
+  printf("ack=%u ", (tcp->th_flags & TH_ACK)>>4);
+  printf("psh=%u ", (tcp->th_flags & 8)/*TH_PSH*/>>3);
+  printf("rst=%u ", (tcp->th_flags & TH_RST)>>2);
+  printf("syn=%u ", (tcp->th_flags & TH_SYN)>>1);
+  printf("fin=%u\n\n", (tcp->th_flags & TH_FIN));
+  //TODO: discard tcp frames with syn set to 1, discard frames with non http...200 OK
+
   return NULL;
 }
 
 void processPacket(u_char* args, const struct pcap_pkthdr* pkthdr, const u_char* packet)
 {
-  /* int* counter = (int*) args; */
+  int* counter = (int*) args;
 
+  ++*counter;
+  printf("---------------------------------Pac.numb%u\n", *counter);
   u_int16_t type = ethernet_handler(args, pkthdr, packet);
 
   if (type == ETHERTYPE_IP) {
@@ -252,7 +275,8 @@ int main()
   /* can filter only some of the first 4 datas: (get.)tcpdump -i eth1 'tcp[20:4] = 0x47455420' */
 /*or, int the same idea:  ether[100] == 123 and ether[102] == 124 */
   /* char* filter_exp = "tcp[20:4] = 0x47455420"; *///not suitable for pages sent in several pieces (1st part of page will contain the "GET HTTP" things, but rest of the parts won't, but we need them)
-  char* filter_exp = "tcp and src port 80";
+  /* char* filter_exp = "tcp and src port 80"; */
+  char* filter_exp = "tcp port 80 and (((ip[2:2] - ((ip[0]&0xf)<<2)) - ((tcp[12]&0xf0)>>2)) != 0)";
   if( (pcap_compile(descr, &filter, filter_exp, 1, mask)) == -1)
     {
       fprintf(stderr, "error during 'pcap compile'\n");
@@ -269,3 +293,12 @@ int main()
   
   return 0;
 }
+
+
+/* RFC793 for the TCP specification. */
+/* RFC1122 for the TCP requirements and a description of the Nagle algorithm. */
+/* RFC1323 for TCP timestamp and window scaling options. */
+/* RFC1644 for a description of TIME_WAIT assasination hazards. */
+/* RFC2481 for a description of Explicit Congestion Notification. */
+/* RFC2581 for TCP congestion control algorithms. */
+/* RFC2018 and RFC2883 for SACK and extensions to SACK.  */
