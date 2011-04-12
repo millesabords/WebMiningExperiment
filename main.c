@@ -47,7 +47,7 @@ struct nread_ip {
   u_int8_t        ip_ttl;          /* time to live              */
   u_int8_t        ip_p;            /* protocol                  */
   u_int16_t       ip_sum;          /* checksum                  */
-  struct  in_addr ip_src, ip_dst;  /* source and dest address   */
+  struct in_addr  ip_src, ip_dst;  /* source and dest address   */
 };
 
 struct nread_tcp {
@@ -101,22 +101,12 @@ u_int16_t ethernet_handler (u_char *args, const struct pcap_pkthdr* pkthdr,
     }
 
   ether_type = ntohs(eptr->ether_type);
+
 /*   fprintf(stdout,"eth: "); */
 /*   fprintf(stdout, */
 /* 	  "%s ", (char*) ether_ntoa((struct ether_addr*)eptr->ether_shost)); */
 /*   fprintf(stdout, */
 /* 	  "%s ", (char*) ether_ntoa((struct ether_addr*)eptr->ether_dhost)); */
- 
-/*   if (ether_type == ETHERTYPE_IP) { */
-/*     fprintf(stdout,"(ip)"); */
-/*   } else  if (ether_type == ETHERTYPE_ARP) { */
-/*     fprintf(stdout,"(arp)"); */
-/*   } else  if (eptr->ether_type == ETHERTYPE_REVARP) { */
-/*     fprintf(stdout,"(rarp)"); */
-/*   } else { */
-/*     fprintf(stdout,"(?)"); */
-/*   } */
- 
 /*   fprintf(stdout," %d\n",length); /\* print len *\/ */
  
   return ether_type;
@@ -131,12 +121,12 @@ u_char* ip_handler (u_char *args,const struct pcap_pkthdr* pkthdr,
   u_int hlen, off, version;             /* offset, version       */
   int len;                        /* length holder         */
 
-  char* dataStr = 0;
+  u_char* dataStr = 0;
   int i = 0;
   u_char* data = 0;
   u_int dataLength = 0;
 
-  /* _ip = (struct nread_ip*)(packet + sizeof(struct ether_header)); */
+  _ip = (struct nread_ip*)(packet + sizeof(struct ether_header));
   /* hlen    = IP_HL(_ip);         /\* get header length *\/ */
   /* length -= sizeof(struct ether_header); */
   tcp = (struct nread_tcp*)(packet + sizeof(struct ether_header) +
@@ -160,7 +150,7 @@ u_char* ip_handler (u_char *args,const struct pcap_pkthdr* pkthdr,
   /* len     = ntohs(_ip->ip_len); /\* get packer length *\/ */
   /* version = IP_V(_ip);          /\* get ip version    *\/ */
 
-  /* off = ntohs(_ip->ip_off); */
+  off = ntohs(_ip->ip_off);
 
   /* /\* if (hlen < 5 ) *\/ */
   /* /\*   fprintf(stderr,"Alert: %s bad header length %d\n", inet_ntoa(ip->ip)); *\/ */
@@ -168,11 +158,11 @@ u_char* ip_handler (u_char *args,const struct pcap_pkthdr* pkthdr,
   /*     /\* 	tcpHeader = (tcphdr*)(packet + sizeof(struct ether_header) + sizeof(struct ip)); *\/ */
   /*     /\* 	sourcePort = ntohs(tcpHeader->source); *\/ */
   /*     /\* 	destPort = ntohs(tcpHeader->dest); *\/ */
+
   data = (u_char*)(packet + sizeof(struct ether_header) + sizeof(struct nread_ip) + sizeof(struct tcphdr));
   dataLength = pkthdr->len - (sizeof(struct ether_header) + sizeof(struct nread_ip) + sizeof(struct tcphdr));
-
-
-  dataStr = (char*) malloc(dataLength * sizeof(char) + 1);
+  
+  dataStr = (u_char*) malloc(dataLength * sizeof(u_char) + 1);
   dataStr[dataLength] = '\0';
   memcpy(dataStr, data, dataLength);
 
@@ -185,12 +175,11 @@ u_char* ip_handler (u_char *args,const struct pcap_pkthdr* pkthdr,
 
   printf("XXXXpayload preview: (length=%u) %sEOP YYYYYYY\n\n", dataLength, dataStr);
   
-
 /* /\*   if (length < len) *\/ */
 /* /\*     fprintf(stderr,"Alert: ip packet truncated: %d bytes missing.\n", len - length); *\/ */
 
-/* /\*   if ((off & 0x1fff) == 0 ) /\\* aka no 1's in first 13 bits *\\/ *\/ */
-/* /\*     { *\/ */
+/*   if ((off & 0x1fff) == 0 ) /\* aka no 1's in first 13 bits *\/ */
+/*     { */
       /* fprintf(stdout,"ip: "); */
       /* fprintf(stdout,"%s:%u->%s:%u ", */
       /* 	      (char*)inet_ntoa(_ip->ip_src), tcp->th_sport, */
@@ -200,8 +189,18 @@ u_char* ip_handler (u_char *args,const struct pcap_pkthdr* pkthdr,
       /* 	      _ip->ip_tos, len, off, _ip->ip_ttl, */
       /* 	      _ip->ip_p, _ip->ip_sum); */
 
+  //TODOOOOOOOOOOO: ip infos: keep ip source and identificator OR use only tcp flags and seq/akcngmt numbers OR both
+  if (off == 0 /* (off & 0x1fff) == 0 */ )
+    fprintf(stdout,"XXXXXXXXXXXXXXX(ip trame info): offset=%u\n", off);      
+  else
+    fprintf(stdout,"OOOOOOOOOOOOOOOOOOOOOO: ip_df=%u  ip_mf=%u\n", off & IP_DF, off & IP_MF);      
+
+  /* if ((off & 0x1fff) == 0) */
+  /*   exit(423); */
+
+
   fprintf(stdout,"gotcha tcp frame:\n Source Port:\t%u\n Destination Port: %u\n Sequence Number: %u\n acknowledgment number: %u\n Data Offset: %u\n Flags: %X\n Window: %u\n Checksum: %u\n Urgent Pointer: %u\n",
-	  tcp->th_sport, tcp->th_dport, tcp->th_seq, tcp->th_ack, tcp->th_off, tcp->th_flags, tcp->th_win, tcp->th_sum, tcp->th_urp);
+	  ntohs(tcp->th_sport), ntohs(tcp->th_dport), ntohs(tcp->th_seq), ntohs(tcp->th_ack), ntohs(tcp->th_off), ntohs(tcp->th_flags), ntohs(tcp->th_win), ntohs(tcp->th_sum), ntohs(tcp->th_urp));
 
   printf("urg=%u ", (tcp->th_flags & TH_URG)>>5);
   printf("ack=%u ", (tcp->th_flags & TH_ACK)>>4);
@@ -209,7 +208,6 @@ u_char* ip_handler (u_char *args,const struct pcap_pkthdr* pkthdr,
   printf("rst=%u ", (tcp->th_flags & TH_RST)>>2);
   printf("syn=%u ", (tcp->th_flags & TH_SYN)>>1);
   printf("fin=%u\n\n", (tcp->th_flags & TH_FIN));
-  //TODO: discard tcp frames with syn set to 1, discard frames with non http...200 OK
 
   return NULL;
 }
@@ -224,11 +222,11 @@ void processPacket(u_char* args, const struct pcap_pkthdr* pkthdr, const u_char*
 
   if (type == ETHERTYPE_IP) {
     ip_handler(args, pkthdr, packet);
-  } else if (type == ETHERTYPE_ARP) {
-    /* noop */
-  } else if (type == ETHERTYPE_REVARP) {
-    /* noop */
-  }
+  }/*  else if (type == ETHERTYPE_ARP) { */
+  /*   /\* noop *\/ */
+  /* } else if (type == ETHERTYPE_REVARP) { */
+  /*   /\* noop *\/ */
+  /* } */
 }
 
 int main()
