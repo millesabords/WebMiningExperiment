@@ -2,4 +2,7 @@ apres idee du trouveur de langue, idee du systeme qui permet de fabriquer des co
 
 
 todo:
-manager les visite/page grace aux flags et seq/acknowledgment numbers
+- get the f.cking http data correctly (http://stackoverflow.com/questions/4302864/how-to-parse-tcp-packet-payload) !!!!size ne doit pas etre tres bon !!!!! l164 main.c
+- verify if ip ok, still verify if protocol is tcp todo
+- manager les visite/page grace aux flags et seq/acknowledgment numbers
+- optionnel: gerer les trames ip v6 (header may be different)
