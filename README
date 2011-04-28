@@ -2,7 +2,16 @@ apres idee du trouveur de langue, idee du systeme qui permet de fabriquer des co
 
 
 todo:
-- get the f.cking http data correctly (http://stackoverflow.com/questions/4302864/how-to-parse-tcp-packet-payload) !!!!size ne doit pas etre tres bon !!!!! l164 main.c
-- verify if ip ok, still verify if protocol is tcp todo
+- try and test qtcp socket servers and likes to see if a tcpserver working in parallel of a web browser could catch tcp frames without stealing them from the browser
+- use wireshark to get which tcp segment contains the interesting html texts, and what does that give in my corresponding output?
 - manager les visite/page grace aux flags et seq/acknowledgment numbers
+- threads pour load balancing. update: ip identification ne sert a rien
+- verify if ip ok, still verify if protocol is tcp todo
 - optionnel: gerer les trames ip v6 (header may be different)
+
+some useful commands:
+``tcpdump  -l  |  tee     dat''     or     ``tcpdump  -l > dat  &  tail  -f  dat
+tcpdump -pXvvv -C1 -s0 -i eth0 -wtcpdump_output 'tcp and src port 80 and (((ip[2:2] - ((ip[0]&0xf)<<2)) - ((tcp[12]&0xf0)>>2)) != 0)
+
+...-X xor -A
+...lower 1000 (in expr)

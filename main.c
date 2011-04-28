@@ -120,6 +120,8 @@ u_char* ip_handler (u_char *args,const struct pcap_pkthdr* pkthdr,
   u_int length = /* ntohs( */pkthdr->len/*)*/ - sizeof(struct ether_header);  /* packet header length  */
   u_int hlen, off, version;             /* offset, version       */
   int len;                        /* length holder         */
+  int ii;
+  u_char* charptr = 0;
 
   u_char* dataStr = 0;
   int i = 0;
@@ -147,7 +149,13 @@ u_char* ip_handler (u_char *args,const struct pcap_pkthdr* pkthdr,
 
 
   /* len     = ntohs(_ip->ip_len); /\* get packer length *\/ */
-  /* version = IP_V(_ip);          /\* get ip version    *\/ */
+  version = IP_V(_ip);          /* get ip version    */
+
+  if(version != 4)
+    {
+      fprintf(stderr, "ah, terrible accident: this was a non-ipv4 ip segment\n");
+      exit(42);
+    }
 
   off = ntohs(_ip->ip_off);
 
@@ -158,16 +166,26 @@ u_char* ip_handler (u_char *args,const struct pcap_pkthdr* pkthdr,
   /*     /\* 	sourcePort = ntohs(tcpHeader->source); *\/ */
   /*     /\* 	destPort = ntohs(tcpHeader->dest); *\/ */
 
-  data = (u_char*)(packet + sizeof(struct ether_header) + sizeof(struct nread_ip) + sizeof(struct tcphdr));
-  /* dataLength = pkthdr->len - (sizeof(struct ether_header) + sizeof(struct nread_ip) + sizeof(struct tcphdr)); */
+  data = (u_char*) packet + sizeof(struct ether_header) + sizeof(struct nread_ip) + sizeof(struct tcphdr);
+  dataLength = pkthdr->len - (sizeof(struct ether_header) + sizeof(struct nread_ip) + sizeof(struct tcphdr));
 
-  dataLength = pkthdr->len - (IP_HL(_ip) * 4 + sizeof(struct tcphdr));
+  /* printf("INSPECTION nette:\n"); */
+  /* charptr = (u_char*) _ip; */
+  /* if (dataLength > 20) */
+  /*   for(ii = 0; ii < pkthdr->len; ii++) */
+  /*     { */
+  /* 	putchar(*charptr); */
+  /* 	charptr++; */
+  /*     } */
 
-  printf("XXXXpayload preview: (length=%u) %sEOP YYYYYYY\n\n", dataLength, data);
+  printf("XXXXpayload 1: (length=%u) %sEOP YYYYYYY\n\n", dataLength, data);
+
+
+  dataLength = pkthdr->len - (IP_HL(_ip) * 4 + tcp->th_off * 4/* sizeof(struct tcphdr) */);
 
   //2222222222 eme essai:
-  data = (u_char*)(packet + sizeof(struct ether_header) + IP_HL(_ip) * 4 + tcp->th_off * 4);
-  printf("XXXXpayload preview: (length=%u) %sEOP YYYYYYY\n\n", dataLength, data);
+  data = (u_char*) packet + sizeof(struct ether_header) + IP_HL(_ip) * 4 + tcp->th_off * 4;
+  printf("XXXXpayload 2: (length=%u) %sEOP YYYYYYY\n\n", dataLength, data);
   
   dataStr = (u_char*) malloc(dataLength * sizeof(u_char) + 1);
   dataStr[dataLength] = '\0';
@@ -176,12 +194,12 @@ u_char* ip_handler (u_char *args,const struct pcap_pkthdr* pkthdr,
   // convert non-printable characters, other than carriage return, line feed,
   // or tab into periods when displayed.
   for (i = 0; i < dataLength; i++) {
-    if ((data[i] < 32 || data[i] > 126) && data[i] != '\0' && data[i] != 10 && data[i] != 11 && data[i] != 13)
+    if ((data[i] < 32 || data[i] > 126/*255 for extended ascii*/) && data[i] != '\0' && data[i] != 10 && data[i] != 11 && data[i] != 13)
       dataStr[i] = '.';
   }
 
 
-  /* printf("XXXXpayload preview: (length=%u) %sEOP YYYYYYY\n\n", dataLength, dataStr); */
+  printf("XXXXpayload 3: (length=%u) %sEOP YYYYYYY\n\n", dataLength, dataStr);
   
 /* /\*   if (length < len) *\/ */
 /* /\*     fprintf(stderr,"Alert: ip packet truncated: %d bytes missing.\n", len - length); *\/ */
@@ -199,13 +217,12 @@ u_char* ip_handler (u_char *args,const struct pcap_pkthdr* pkthdr,
 
   //TODOOOOOOOOOOO: ip infos: keep ip source and identificator OR use only tcp flags and seq/akcngmt numbers OR both
   if (off == 0 /* (off & 0x1fff) == 0 */ )
-    fprintf(stdout,"XXXXXXXXXXXXXXX(ip trame info): ipoffset=%u, tcpoffset=%u\n", off, tcp->th_off);      
+    fprintf(stdout,"XXXXXXXXXXXXXXX(ip trame info): ipoffset=%u, tcpoffset=%u\n", off, tcp->th_off);
   else
     fprintf(stdout,"OOOOOOOOOOOOOOOOOOOOOO: ip_df=%u  ip_mf=%u\n", off & IP_DF, off & IP_MF);      
 
   /* if ((off & 0x1fff) == 0) */
   /*   exit(423); */
-
 
   fprintf(stdout,"gotcha tcp frame:\n Source Port:\t%u\n Destination Port: %u\n Sequence Number: %u\n acknowledgment number: %u\n Data Offset: %u\n Flags: %X\n Window: %u\n Checksum: %u\n Urgent Pointer: %u\n",
 	  ntohs(tcp->th_sport), ntohs(tcp->th_dport), ntohs(tcp->th_seq), ntohs(tcp->th_ack), ntohs(tcp->th_off), ntohs(tcp->th_flags), ntohs(tcp->th_win), ntohs(tcp->th_sum), ntohs(tcp->th_urp));
@@ -282,7 +299,8 @@ int main()
 /*or, int the same idea:  ether[100] == 123 and ether[102] == 124 */
   /* char* filter_exp = "tcp[20:4] = 0x47455420"; *///not suitable for pages sent in several pieces (1st part of page will contain the "GET HTTP" things, but rest of the parts won't, but we need them)
   /* char* filter_exp = "tcp and src port 80"; */
-  char* filter_exp = "tcp port 80 and (((ip[2:2] - ((ip[0]&0xf)<<2)) - ((tcp[12]&0xf0)>>2)) != 0)";
+  char* filter_exp = "tcp and src port 80 and (((ip[2:2] - ((ip[0]&0xf)<<2)) - ((tcp[12]&0xf0)>>2)) != 0)";
+
 
   if( (pcap_compile(descr, &filter, filter_exp, 1, mask)) == -1)
     {
