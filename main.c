@@ -3,6 +3,8 @@
 
 #define _BSD_SOURCE 1
 
+#include "zlib.h"
+
 /* #include <sys/ioctl.h> */
 /* #include <sys/socket.h> */
 /* #include <sys/stat.h> */
@@ -128,6 +130,8 @@ u_char* ip_handler (u_char *args,const struct pcap_pkthdr* pkthdr,
   u_char* data = 0;
   u_int dataLength = 0;
 
+  unsigned char bufTest[16384] = {0};
+
   _ip = (struct nread_ip*)(packet + sizeof(struct ether_header));
   /* hlen    = IP_HL(_ip);         /\* get header length *\/ */
   tcp = (struct nread_tcp*)(packet + sizeof(struct ether_header) +
@@ -186,10 +190,42 @@ u_char* ip_handler (u_char *args,const struct pcap_pkthdr* pkthdr,
   //2222222222 eme essai:
   data = (u_char*) packet + sizeof(struct ether_header) + IP_HL(_ip) * 4 + tcp->th_off * 4;
   printf("XXXXpayload 2: (length=%u) %sEOP YYYYYYY\n\n", dataLength, data);
+
+
+
+
+  /* z_stream zdStream; */
+  /* zdStream.next_in = data; */
+  /* zdStream.avail_in = dataLength; */
+  /* zdStream.zalloc = Z_NULL; */
+  /* zdStream.zfree = Z_NULL; */
+  /* zdStream.opaque = Z_NULL; */
+  /* zdStream.avail_out = 163084; */
+  /* zdStream.next_out = bufTest; */
+  /* //int windowBits = 15 + 16; /\* 15 is default as if inflateInit *\/ */
+  /* if(inflateInit2(&zdStream, 16 + MAX_WBITS) != Z_OK) */
+  /*   { */
+  /*     fprintf(stderr, "inflateInit failed\n"); */
+  /*     if(zdStream.msg != NULL) */
+  /* 	fprintf(stderr, "%s\n", zdStream.msg); */
+  /*     //exit(EXIT_FAILURE); */
+  /*   } */
+  /* else */
+  /*   printf("inflateInit succeeded\n"); */
+  /* ...check  zdStream.next_out */
+
+
+
+
   
   dataStr = (u_char*) malloc(dataLength * sizeof(u_char) + 1);
   dataStr[dataLength] = '\0';
   memcpy(dataStr, data, dataLength);
+
+
+
+
+
 
   // convert non-printable characters, other than carriage return, line feed,
   // or tab into periods when displayed.
@@ -276,6 +312,8 @@ int main()
     printf("%s\n", errbuf);
     return 1;
   }
+
+  printf("DEV: %s\n",device);
 
   descr = pcap_open_live(device, MAX_BYTES2CAPTURE, 0, 512, errbuf);
   if( descr == NULL )

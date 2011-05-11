@@ -1,2 +1,2 @@
 all:
-	gcc -g main.c -l pcap -o test
+	gcc -g main.c -lpcap -lz -o test
